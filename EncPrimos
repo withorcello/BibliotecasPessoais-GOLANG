@@ -1,0 +1,21 @@
+func veriPrimo(prim int) bool {
+	for i := 2; i < prim; i++ {
+		if prim%i == 0 {
+			return false
+		}
+	}
+	return true
+}
+//Função que encontra numeros primos baseado na quantidade desejada.
+func EncPrimo(quant int, ch chan int) {
+	inicio := 2
+	for i := 0; i < quant; i++ {
+		for primo := inicio; ; primo++ {
+			if veriPrimo(primo) {
+				ch <- primo
+				inicio = primo + 1
+			}
+		}
+	}
+	close(ch)
+}
