@@ -1,40 +1,56 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
-//Insert abc
-func Insert() {
-
+type Pessoas struct {
+	IDPessoa int `gorm:"primary_key"`
+	Nome     string
+	Contatos []*Contato `gorm:"foreignkey:PessoaID;association_foreignkey:IDPessoa"`
 }
 
-//Select abc
-func Select() {
-	var pessoas *Pessoas
-	db, err := gorm.Open("mysql", "root:root@/teste")
+type Contato struct {
+	IDContato int `gorm:"primary_key"`
+	Tipo      string
+	Descricao string
+	PessoaID  uint `gorm:"foreignkey:PessoaID"`
+}
+
+func main() {
+	r := gin.Default()
+	pessoas := Pessoas{}
+	var pessoa Pessoas
+	db, err := gorm.Open("mysql", "root:root@/Pessoa")
 	if err != nil {
 		log.Fatal("failed to connect database")
 	}
 	defer db.Close()
-	db.AutoMigrate(&Pessoas{}, &Contato{})
-	db.Model(&Contato{}).AddForeignKey("cust_id", "customers(customer_id)", "CASCADE", "CASCADE") // Foreign key need to define manually
-	//db.AutoMigrate(&Contato{})
-	//db.Create(&Pessoas{IDPessoas: 3, Nome: "Withor"})
-	db.Find(&Pessoas{})
-	fmt.Printf("Pessoas: %v", pessoas)
-}
 
-//Update abc
-func Update() {
+	//Migra as structs para o Banco
+	db.AutoMigrate(&Contato{}, &Pessoas{})
 
-}
+	// Insere um valor na tabela Pessoas
+	r.POST("/addNewPessoa", func(c *gin.Context) {
+		if err := c.ShouldBindJSON(&pessoa); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		db.Create(&pessoa)
+	})
 
-//Delete abc
-func Delete() {
-
+	// Faz o select na tabela pessoas
+	db.Preload("Contatos", "pessoa_id = ?", &pessoas.IDPessoa).Find(&pessoas)
+	//db.Model(Pessoas{}).First(&pessoas).Scan(&pessoas)
+	r.GET("/mostrar", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"Pessoa:": &pessoas,
+		})
+	})
+	r.Run()
 }
