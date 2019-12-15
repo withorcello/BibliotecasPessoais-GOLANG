@@ -22,11 +22,15 @@ type Contato struct {
 	PessoaID  uint `gorm:"foreignkey:PessoaID"`
 }
 
+type Ids struct {
+	Idv int `json:"id"`
+}
+
 func main() {
 	r := gin.Default()
-	pessoas := Pessoas{}
+	//pessoas := Pessoas{}
 	var pessoa Pessoas
-	db, err := gorm.Open("mysql", "root:root@/Pessoa")
+	db, err := gorm.Open("mysql", "root:root@/pessoa")
 	if err != nil {
 		log.Fatal("failed to connect database")
 	}
@@ -34,6 +38,28 @@ func main() {
 
 	//Migra as structs para o Banco
 	db.AutoMigrate(&Contato{}, &Pessoas{})
+
+	//Deleta um item no banco
+	r.DELETE("/Delete", func(c *gin.Context) {
+		var id Ids
+
+		if err := c.ShouldBindJSON(&id); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		db.Where("id_pessoa = ?", id.Idv).Delete(Pessoas{})
+	})
+
+	//Edita um item
+	r.POST("/Update", func(c *gin.Context) {
+		var pess Pessoas
+
+		if err := c.ShouldBindJSON(&pess); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		db.Model(&pess).Where("id_pessoa = ?", pess.IDPessoa).Updates(Pessoas{Nome: pess.Nome, Contatos: pess.Contatos})
+	})
 
 	// Insere um valor na tabela Pessoas
 	r.POST("/addNewPessoa", func(c *gin.Context) {
@@ -45,12 +71,14 @@ func main() {
 	})
 
 	// Faz o select na tabela pessoas
-	db.Preload("Contatos", "pessoa_id = ?", &pessoas.IDPessoa).Find(&pessoas)
 	//db.Model(Pessoas{}).First(&pessoas).Scan(&pessoas)
 	r.GET("/mostrar", func(c *gin.Context) {
+		var pess Pessoas
+		db.Preload("Contatos").Find(&pess)
 		c.JSON(200, gin.H{
-			"Pessoa:": &pessoas,
+			"Pessoa:": &pess,
 		})
 	})
 	r.Run()
 }
+
